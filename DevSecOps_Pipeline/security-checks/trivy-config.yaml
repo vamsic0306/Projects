@@ -1,0 +1,16 @@
+vulnerability:
+  ignore-unfixed: true
+  severity:
+    - CRITICAL
+    - HIGH
+    - MEDIUM
+
+scan:
+  skip-dirs:
+    - node_modules
+    - dist
+    - build
+
+report:
+  format: table
+  output: trivy-results.json
