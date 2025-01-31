@@ -1,0 +1,17 @@
+- rule: Unauthorized Process
+  desc: Detect unauthorized process execution
+  condition: spawned_process and not proc.name in (authorized_processes)
+  output: Unauthorized process started (user=%user.name command=%proc.cmdline)
+  priority: WARNING
+
+- rule: Sensitive File Access
+  desc: Detect access to sensitive files
+  condition: open_read and sensitive_files
+  output: Sensitive file accessed (user=%user.name file=%fd.name)
+  priority: WARNING
+
+- rule: Container Shell Access
+  desc: Detect shell access in containers
+  condition: container and proc.name = bash
+  output: Shell accessed in container (user=%user.name container=%container.name)
+  priority: WARNING
