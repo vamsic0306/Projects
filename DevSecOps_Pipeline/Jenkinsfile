@@ -1,0 +1,78 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKER_IMAGE = 'my-app:${BUILD_NUMBER}'
+        REGISTRY_CREDENTIALS = credentials('docker-cred')
+    }
+    
+    stages {
+        stage('Code Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/your-repo.git'
+            }
+        }
+        
+        stage('SAST') {
+            steps {
+                script {
+                    def scannerHome = tool 'SonarQube'
+                    withSonarQubeEnv('SonarQube') {
+                        sh "${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=my-app \
+                            -Dsonar.sources=. \
+                            -Dsonar.host.url=http://sonarqube:9000"
+                    }
+                }
+            }
+        }
+        
+        stage('Dependency Check') {
+            steps {
+                sh 'npm audit'
+                sh 'trivy fs .'
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                sh 'docker build -t ${DOCKER_IMAGE} .'
+            }
+        }
+        
+        stage('Container Security Scan') {
+            steps {
+                sh 'trivy image ${DOCKER_IMAGE}'
+            }
+        }
+        
+        stage('Deploy to Dev') {
+            steps {
+                sh '''
+                    kubectl apply -f k8s/
+                    kubectl set image deployment/my-app my-app=${DOCKER_IMAGE}
+                '''
+            }
+        }
+        
+        stage('Runtime Security') {
+            steps {
+                sh 'helm upgrade --install falco falcosecurity/falco'
+            }
+        }
+    }
+    
+    post {
+        always {
+            junit 'test-results/*.xml'
+            publishHTML target: [
+                allowMissing: false,
+                alwaysLinkToLastBuild: false,
+                keepAll: true,
+                reportDir: 'coverage',
+                reportFiles: 'index.html',
+                reportName: 'Coverage Report'
+            ]
+        }
+    }
+}
